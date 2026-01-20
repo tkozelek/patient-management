@@ -1,4 +1,33 @@
 services:
+  billing-service:
+    build: ./billing-service
+    container_name: billing-service
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+      - SPRING_DATASOURCE_USERNAME=${DB_USER}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASS}
+    ports:
+      - ${BILLING_SERVICE_PORT}:4001
+      - ${BILLING_SERVICE_GRPC_PORT}:9001
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  patient-service:
+    build: ./patient-service
+    container_name: patient-service
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+      - SPRING_DATASOURCE_USERNAME=${DB_USER}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASS}
+      - BILLING_SERVICE_ADDRESS=billing-service
+      - BILLING_SERVICE_GRPC_PORT=${BILLING_SERVICE_GRPC_PORT}
+    ports:
+      - ${PATIENT_SERVICE_PORT}:4000
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   postgres:
     container_name: patient-service-postgres
     image: postgres:15-alpine
@@ -12,30 +41,17 @@ services:
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
       interval: 5s
       timeout: 5s
       retries: 3
-
-  patient-service:
-    build: ./patient-service
-    container_name: patient-service
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://${DB_USER}:${DB_PORT}/${DB_NAME}
-      - SPRING_DATASOURCE_USERNAME=${DB_USER}
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASS}
-    ports:
-      - ${PATIENT_SERVICE_PORT}:8080
-    depends_on:
-      postgres:
-        condition: service_healthy
 
   adminer:
     container_name: patient-service-adminer
     image: adminer:latest
     restart: always
     ports:
-      - "8080:8080"
+      - "8088:8080"
 
 volumes:
   db-data:

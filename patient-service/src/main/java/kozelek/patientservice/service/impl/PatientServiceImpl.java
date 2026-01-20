@@ -1,10 +1,12 @@
 package kozelek.patientservice.service.impl;
 
+import billing.BillingResponse;
 import kozelek.patientservice.dto.PatientRequestDto;
 import kozelek.patientservice.dto.PatientResponseDto;
 import kozelek.patientservice.entity.Patient;
 import kozelek.patientservice.exception.EmailAlreadyExistsException;
 import kozelek.patientservice.exception.PatientNotFoundException;
+import kozelek.patientservice.grpc.BillingServiceGrpcClient;
 import kozelek.patientservice.mapper.PatientMapper;
 import kozelek.patientservice.repository.PatientRepository;
 import kozelek.patientservice.service.PatientService;
@@ -24,6 +26,7 @@ import java.util.UUID;
 public class PatientServiceImpl implements PatientService {
     private final PatientRepository patientRepository;
     private final PatientMapper patientMapper;
+    private final BillingServiceGrpcClient billingServiceGrpcClient;
 
     @Override
     public List<PatientResponseDto> findAllPatients() {
@@ -38,6 +41,15 @@ public class PatientServiceImpl implements PatientService {
             throw new EmailAlreadyExistsException("A patient with this email already exists. Email: " + patientRequestDto.getEmail());
 
         Patient createdPatient = this.patientRepository.save(this.patientMapper.toEntity(patientRequestDto));
+
+        BillingResponse rsp = billingServiceGrpcClient.createBillingAccount(
+                createdPatient.getId().toString(),
+                createdPatient.getName(),
+                createdPatient.getEmail()
+        );
+
+        System.out.println(rsp);
+        log.info(rsp.toString());
 
         return this.patientMapper.toDto(createdPatient);
     }

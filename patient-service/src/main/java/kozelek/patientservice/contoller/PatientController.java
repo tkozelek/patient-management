@@ -7,6 +7,7 @@ import jakarta.validation.groups.Default;
 import kozelek.patientservice.dto.PatientRequestDto;
 import kozelek.patientservice.dto.PatientResponseDto;
 import kozelek.patientservice.dto.validators.CreationValidator;
+import kozelek.patientservice.grpc.BillingServiceGrpcClient;
 import kozelek.patientservice.service.PatientService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,7 +52,9 @@ public class PatientController {
     @Operation(summary = "Create patient")
     public ResponseEntity<PatientResponseDto> createPatient(@Validated({Default.class, CreationValidator.class}) @RequestBody PatientRequestDto patientRequestDto) {
         log.info("Creating a patient {} was requested.", patientRequestDto.getName());
+
         PatientResponseDto patientResponseDto = this.patientService.createPatient(patientRequestDto);
+
         return ResponseEntity.ok(patientResponseDto);
     }
 
