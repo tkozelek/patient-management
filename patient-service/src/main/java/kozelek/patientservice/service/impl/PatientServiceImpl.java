@@ -7,6 +7,7 @@ import kozelek.patientservice.entity.Patient;
 import kozelek.patientservice.exception.EmailAlreadyExistsException;
 import kozelek.patientservice.exception.PatientNotFoundException;
 import kozelek.patientservice.grpc.BillingServiceGrpcClient;
+import kozelek.patientservice.kafka.KafkaProducer;
 import kozelek.patientservice.mapper.PatientMapper;
 import kozelek.patientservice.repository.PatientRepository;
 import kozelek.patientservice.service.PatientService;
@@ -27,6 +28,7 @@ public class PatientServiceImpl implements PatientService {
     private final PatientRepository patientRepository;
     private final PatientMapper patientMapper;
     private final BillingServiceGrpcClient billingServiceGrpcClient;
+    private final KafkaProducer kafkaProducer;
 
     @Override
     public List<PatientResponseDto> findAllPatients() {
@@ -42,14 +44,13 @@ public class PatientServiceImpl implements PatientService {
 
         Patient createdPatient = this.patientRepository.save(this.patientMapper.toEntity(patientRequestDto));
 
-        BillingResponse rsp = billingServiceGrpcClient.createBillingAccount(
+        billingServiceGrpcClient.createBillingAccount(
                 createdPatient.getId().toString(),
                 createdPatient.getName(),
                 createdPatient.getEmail()
         );
 
-        System.out.println(rsp);
-        log.info(rsp.toString());
+        this.kafkaProducer.sendEvent(createdPatient);
 
         return this.patientMapper.toDto(createdPatient);
     }

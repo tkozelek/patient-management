@@ -40,7 +40,6 @@ public class BillingServiceGrpcClient {
                 .setEmail(email)
                 .build();
 
-
         try {
             BillingResponse response = this.blockingStub.createBillingAccount(request);
             log.info("BillingResponse from createBillingAccount via GRPC is {}", response);
