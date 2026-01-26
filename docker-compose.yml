@@ -24,22 +24,40 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
 
   postgres:
-    container_name: patient-service-postgres
+    container_name: patient-db
     image: postgres:15-alpine
-    ports:
-      - "${DB_PORT}:5432"
     restart: always
     environment:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASS}
       POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "5432:5432"
     volumes:
-      - db-data:/var/lib/postgresql/data
+      - db-data-patient:/var/lib/postgresql/data
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}" ]
       interval: 5s
       timeout: 5s
-      retries: 3
+      retries: 5
+
+  postgres-auth:
+    container_name: auth-db
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER_AUTH}
+      POSTGRES_PASSWORD: ${DB_PASS_AUTH}
+      POSTGRES_DB: ${DB_NAME_AUTH}
+    ports:
+      - "5433:5432"
+    volumes:
+      - db-data-auth:/var/lib/postgresql/data_auth
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER_AUTH} -d ${DB_NAME_AUTH}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   patient-service:
     build: ./patient-service
@@ -54,16 +72,25 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      kafka:
-        condition: service_started
+
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://${DB_HOST_AUTH}:${DB_PORT_AUTH}/${DB_NAME_AUTH}
+      - SPRING_DATASOURCE_USERNAME=${DB_USER_AUTH}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASS_AUTH}
+      - JWT_SECRET=e7e1b722ce927d20971850c1acf0a0a14eb344668a6f20fb000704558844105fd34b1967
+      - SERVER_PORT=4003
+    ports:
+      - "${AUTH_SERVICE_PORT}:4003"
+    depends_on:
+      postgres-auth:
+        condition: service_healthy
 
   billing-service:
     build: ./billing-service
     container_name: billing-service
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
-      - SPRING_DATASOURCE_USERNAME=${DB_USER}
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASS}
     ports:
       - ${BILLING_SERVICE_PORT}:4001
       - ${BILLING_SERVICE_GRPC_PORT}:9001
@@ -85,6 +112,8 @@ services:
   api-gateway:
     build: ./api-gateway
     container_name: api-gateway
+    environment:
+      - AUTH_SERVICE_URL=http://auth-service:4003
     ports:
       - ${API_GATEWAY_PORT}:4004
     depends_on:
@@ -99,4 +128,5 @@ services:
       - "8088:8080"
 
 volumes:
-  db-data:
+  db-data-patient:
+  db-data-auth:

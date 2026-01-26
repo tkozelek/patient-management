@@ -7,10 +7,19 @@ spring:
       server:
         webflux:
           routes:
+            # auth service
+            - id: auth-service-route
+              uri: http://auth-service:4003
+              predicates:
+                - Path=/api/v1/auth/**
+
+            # patient service
             - id: patient-service-route
               uri: http://patient-service:4000
               predicates:
                 - Path=/api/v1/patients/**
+              filters:
+                - JwtValidation # be careful with naming convention
 
             - id: api-docs-patient-route
               uri: http://patient-service:4000
